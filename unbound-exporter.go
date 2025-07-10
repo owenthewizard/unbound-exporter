@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -222,35 +223,26 @@ func collectStats(collector *UnboundCollector, ch chan<- prometheus.Metric) erro
 }
 
 func collectBlocklist(ch chan<- prometheus.Metric) {
-	var count = 0
-	var err error
-	var numBytes int
-	var isLocalData = false
-	var pattern = []byte("\n")
+	var jsonData struct {
+		Data map[string]interface{} `json:"data"`
+	}
 
-	blocklist, fileErr := os.Open(blockFilename)
-	if fileErr != nil {
-		log.Error("blocklist not found: ", fileErr)
+	file, err := os.Open(blockFilename)
+	if err != nil {
+		log.Error("blocklist file not found: ", err)
 		return
 	}
-	buffer := make([]byte, bufio.MaxScanTokenSize)
-	for {
-		numBytes, err = blocklist.Read(buffer)
-		count += bytes.Count(buffer[:numBytes], pattern)
-		if err == io.EOF {
-			break
-		}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&jsonData); err != nil {
+		log.Error("failed to decode blocklist JSON: ", err)
+		return
 	}
-	if bytes.Contains(buffer, []byte(`local-data:`)) {
-		isLocalData = true
-	}
-	count -= 1
-	if isLocalData {
-		count /= 2
-	}
+
+	count := len(jsonData.Data)
+
 	addMetric(ch, blocklistMetric.desc, blocklistMetric.valueType, float64(count))
-	buffer = nil
-	blocklist.Close()
 }
 
 func (collector *UnboundCollector) Collect(ch chan<- prometheus.Metric) {
