@@ -1,3 +1,7 @@
+This is a fork of [ar51an/unbound-exporter](https://github.com/ar51an/unbound-exporter), modified to parse OPNsense's unbound JSON dnsbl.
+
+---
+
 ## unbound exporter
 <div align="center">
 
